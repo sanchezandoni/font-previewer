@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Online font previewer</title>
+  <style>
+    #dragAndDropArea{
+      width: 100%;
+      min-height: 150px;
+      border: dashed 6px grey;
+      text-align: center;
+      display:flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+      #dragAndDropArea label, #dragAndDropArea .download-icon{
+        display:block;
+        margin-bottom:1em;
+      }
+      #dragAndDropArea input{
+        display: none;
+      }
+
+    #fontPreviewList{
+      margin-top: 1em;
+    }
+
+      #fontPreviewList li{
+        border-bottom: solid 1px grey;
+        padding: 1em;
+      }
+  </style>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css">
+</head>
+<body>
+  <nav class="navbar has-shadow is-spaced is-primary">
+    <div class="container">
+      <div class="navbar-brand">
+        <span class="navbar-item">
+          <h1>Online font previewer</h1>
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <div id="dragAndDropArea">
+    <div class="download-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="50" height="43" viewBox="0 0 50 43"><path d="M48.4 26.5c-.9 0-1.7.7-1.7 1.7v11.6h-43.3v-11.6c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v13.2c0 .9.7 1.7 1.7 1.7h46.7c.9 0 1.7-.7 1.7-1.7v-13.2c0-1-.7-1.7-1.7-1.7zm-24.5 6.1c.3.3.8.5 1.2.5.4 0 .9-.2 1.2-.5l10-11.6c.7-.7.7-1.7 0-2.4s-1.7-.7-2.4 0l-7.1 8.3v-25.3c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v25.3l-7.1-8.3c-.7-.7-1.7-.7-2.4 0s-.7 1.7 0 2.4l10 11.6z"></path></svg>
+    </div>
+    <label for="fileInput"><strong>Choose your font files</strong> or drag them here.</label>
+    <input type="file" id="fileInput" multiple accept=".woff,.woff2,.eot,.ttf">
+  </div>
+  <ul id="fontPreviewList">
+    
+  </ul>
+
+  <script type="text/template" id="fontItemTemplate">
+    <li id="${fontFamilyName}" style="font-family: ${fontFamilyName}">
+      <h1>${fileName}</h1>
+      <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit.</p>
+    </li>
+  </script>
+
+  <footer class="footer">
+    <div class="content has-text-centered">
+      <a href="https://bulma.io">
+        <img src="https://bulma.io/images/made-with-bulma.png" alt="Made with Bulma" width="128" height="24">
+      </a>
+    </div>
+  </footer>
+
+  <script>
+    var input = document.getElementById("fileInput");
+    var dragAndDropArea = document.getElementById("dragAndDropArea");
+    var fontPreviewList = document.getElementById("fontPreviewList");
+    var template = document.getElementById("fontItemTemplate").innerHTML;
+
+    dragAndDropArea.addEventListener("drag",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("dragstart",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("dragend",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("dragover",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("dragenter",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("dragleave",preventDefaultAndPropagation);
+    dragAndDropArea.addEventListener("drop",preventDefaultAndPropagation);
+
+    dragAndDropArea.addEventListener("dragover",addClassWrapper("is-dragover"));
+    dragAndDropArea.addEventListener("dragenter",addClassWrapper("is-dragover"));
+
+    dragAndDropArea.addEventListener("dragleave",removeClassWrapper("is-dragover"));
+    dragAndDropArea.addEventListener("dragend",removeClassWrapper("is-dragover"));
+    dragAndDropArea.addEventListener("drop",removeClassWrapper("is-dragover"));
+
+    dragAndDropArea.addEventListener("drop",addFiles);
+
+    input.addEventListener("change",addFiles);
+
+    function addFiles(e){
+      var droppedFiles = false;
+      var validFileExtensions = ["woff","woff2","eot","ttf"];
+
+      if(e.dataTransfer){
+        console.log("añadiendo ficheros desde drag and drop");
+        droppedFiles = e.dataTransfer.files;
+        console.log("droppedFiles",droppedFiles);
+      }else{
+        console.log("añadiendo ficheros desde input");
+        droppedFiles = e.target.files;
+        console.log("droppedFiles",droppedFiles);
+      }
+
+      var validFontFiles = Array.from(droppedFiles).filter(function(item){
+        let extension = item.name.split('.').pop();
+        return validFileExtensions.indexOf(extension) != -1;
+      })
+      updateFontPreviews(validFontFiles);
+    }
+
+    function updateFontPreviews(fileList){
+      var ulDocumentFragment = new DocumentFragment();
+
+      for(var i=0, len = fileList.length; i<len; ++i){
+        var file = fileList[i];
+        var fileName = file.name;
+        var fontFamilyName = file.name.replace(".","_");
+
+        if(!existsFont(fontFamilyName)){
+          var fontUrl = window.URL.createObjectURL(file);
+          var jqStyle = document.createElement("style");
+          jqStyle.innerHTML = `
+            @font-face {
+              font-family:"${fontFamilyName}";
+              src: url(${fontUrl});
+            }
+            `;
+
+          document.head.appendChild(jqStyle);
+        }
+
+        var liWrapper = document.createElement("div");
+        liWrapper.innerHTML = eval('`'+template+'`');
+
+        ulDocumentFragment.appendChild(liWrapper.firstElementChild);
+      }
+
+      while (fontPreviewList.firstChild) {
+          fontPreviewList.removeChild(fontPreviewList.firstChild);
+      }
+      fontPreviewList.appendChild(ulDocumentFragment);
+
+    }
+
+    function getDocumentFonts(){
+      let fonts = [];
+      document.fonts.forEach(function(font){
+        fonts.push(font);
+      })
+      return fonts;
+    }
+
+    function existsFont(fontFamilyName){
+      return getDocumentFonts().filter(function(item){
+        return item.family === fontFamilyName;
+      }).length > 0;
+    }
+
+    function preventDefaultAndPropagation(e){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    function addClassWrapper(className){
+      return function(e){
+        e.target.classList.add(className)
+      }
+    }
+
+    function removeClassWrapper(className){
+      return function(e){
+        e.target.classList.add(className)
+      }
+    }
+
+  </script>
+</body>
+</html>
