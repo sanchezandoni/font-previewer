@@ -57,7 +57,7 @@
   </ul>
 
   <script type="text/template" id="fontItemTemplate">
-    <li id="${fontFamilyName}" style="font-family: ${fontFamilyName}">
+    <li>
       <h1>${fileName}</h1>
       <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit.</p>
     </li>
@@ -101,13 +101,11 @@
       var validFileExtensions = ["woff","woff2","eot","ttf"];
 
       if(e.dataTransfer){
-        console.log("añadiendo ficheros desde drag and drop");
+        // añadiendo ficheros desde drag and drop
         droppedFiles = e.dataTransfer.files;
-        console.log("droppedFiles",droppedFiles);
       }else{
-        console.log("añadiendo ficheros desde input");
+        // añadiendo ficheros desde input
         droppedFiles = e.target.files;
-        console.log("droppedFiles",droppedFiles);
       }
 
       var validFontFiles = Array.from(droppedFiles).filter(function(item){
@@ -119,6 +117,7 @@
 
     function updateFontPreviews(fileList){
       var ulDocumentFragment = new DocumentFragment();
+      var promises = [];
 
       for(var i=0, len = fileList.length; i<len; ++i){
         var file = fileList[i];
@@ -127,27 +126,37 @@
 
         if(!existsFont(fontFamilyName)){
           var fontUrl = window.URL.createObjectURL(file);
-          var jqStyle = document.createElement("style");
-          jqStyle.innerHTML = `
-            @font-face {
-              font-family:"${fontFamilyName}";
-              src: url(${fontUrl});
-            }
-            `;
+          var fontFace = new FontFace(fontFamilyName, `url(${fontUrl})`);
 
-          document.head.appendChild(jqStyle);
+          promises.push(
+            fontFace.load().then(addToUlDocumentFragmentWrapperFunction(fileName))
+          );
+
+          function addToUlDocumentFragmentWrapperFunction(fileName){
+            return function (loadedFace) {
+              document.fonts.add(loadedFace);
+
+              var liWrapper = document.createElement("div");
+              liWrapper.innerHTML = eval('`'+template+'`');
+              var liElement = liWrapper.firstElementChild;
+              liElement.style.fontFamily = loadedFace.family;
+
+              ulDocumentFragment.appendChild(liElement);
+
+              return loadedFace;
+            }
+          }
         }
 
-        var liWrapper = document.createElement("div");
-        liWrapper.innerHTML = eval('`'+template+'`');
-
-        ulDocumentFragment.appendChild(liWrapper.firstElementChild);
       }
 
       while (fontPreviewList.firstChild) {
           fontPreviewList.removeChild(fontPreviewList.firstChild);
       }
-      fontPreviewList.appendChild(ulDocumentFragment);
+
+      Promise.all(promises).then(function(loadedFaces){
+        fontPreviewList.appendChild(ulDocumentFragment);
+      })
 
     }
 
