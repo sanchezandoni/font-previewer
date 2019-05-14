@@ -136,14 +136,10 @@
             return function (loadedFace) {
               document.fonts.add(loadedFace);
 
-              var liWrapper = document.createElement("div");
-              liWrapper.innerHTML = eval('`'+template+'`');
-              var liElement = liWrapper.firstElementChild;
-              liElement.style.fontFamily = loadedFace.family;
-
-              ulDocumentFragment.appendChild(liElement);
-
-              return loadedFace;
+              return {
+                fileName:fileName,
+                fontFace: loadedFace
+              }
             }
           }
         }
@@ -155,7 +151,25 @@
       }
 
       Promise.all(promises).then(function(loadedFaces){
+        var sortedFaces = loadedFaces.sort( sortByFileName );
+
+        for(var i=0, len = loadedFaces.length; i<len; ++i){
+          var loadedFace = loadedFaces[i].fontFace;
+          var fileName = loadedFaces[i].fileName;
+
+          var liWrapper = document.createElement("div");
+          liWrapper.innerHTML = eval('`'+template+'`');
+          var liElement = liWrapper.firstElementChild;
+          liElement.style.fontFamily = loadedFace.family;
+
+          ulDocumentFragment.appendChild(liElement);
+        }
+
         fontPreviewList.appendChild(ulDocumentFragment);
+
+        function sortByFileName(a,b){
+          return a.fileName > b.fileName ? 1 : a.fileName < b.fileName ? -1 : 0;
+        }
       })
 
     }
